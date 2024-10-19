@@ -13,6 +13,11 @@ user_data = {}
 
 # Function to start the bot and greet the user
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    # Clear user data when starting again
+    if user_id in user_data:
+        del user_data[user_id]
+
     keyboard = [[InlineKeyboardButton("Search Trains", callback_data='search_trains')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Welcome! Click the button below to search for trains.", reply_markup=reply_markup)
