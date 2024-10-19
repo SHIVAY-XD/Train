@@ -1,25 +1,28 @@
 import requests
-import re
 from bs4 import BeautifulSoup
 
 def find_trains(stn_from, stn_to):
-    url = f"http://erail.in/rail/getTrains.aspx?Station_From={stn_from}&Station_To={stn_to}&DataSource=0&Language=0"
-    response = requests.get(url)
-    response.raise_for_status()
-    
-    re_train_item = re.compile(r'\^\d+\~[A-Za-z0-9 ]+')
-    re_train_name = re.compile(r'~[A-Za-z0-9 ]+')
-    re_train_number = re.compile(r'\^\d+')
-    
-    trains = {}
-    train_items = re_train_item.findall(response.text)
-    
-    for train_item in train_items:
-        train_number = re_train_number.search(train_item).group()[1:]
-        train_name = re_train_name.search(train_item).group()[1:]
-        trains[train_number] = train_name
-    
-    return trains
+    try:
+        request_url = f"http://erail.in/rail/getTrains.aspx?Station_From={stn_from}&Station_To={stn_to}&DataSource=0&Language=0"
+        response = requests.get(request_url)
+        response.raise_for_status()
+        
+        trains = {}
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Extract train details (this part may need adjustment based on actual HTML structure)
+        train_rows = soup.find_all('tr')
+        for row in train_rows:
+            cols = row.find_all('td')
+            if len(cols) > 1:
+                train_number = cols[0].text.strip()
+                train_name = cols[1].text.strip()
+                trains[train_number] = train_name
+        
+        return trains
+    except Exception as e:
+        print(f"Error fetching train list: {e}")
+        return {}
 
 def find_availability(args):
     post_data = {
@@ -34,48 +37,48 @@ def find_availability(args):
     }
     
     headers = {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Content-Type': 'application/x-www-form-urlencoded',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     
     request_url = "http://www.indianrail.gov.in/cgi_bin/inet_accavl_cgi1.cgi"
-    response = requests.post(request_url, data=post_data, headers=headers)
-    response.raise_for_status()
     
-    soup = BeautifulSoup(response.content, 'html.parser')
-    date = f"{int(args['day']) + 1}-{args['month']}-{args['year']}"
-    
-    tds = soup.find(text=re.compile('S.No.'))
     try:
-        td_text = tds.parent.parent.parent.find(text=re.compile(date)).next.next.next
+        response = requests.post(request_url, data=post_data, headers=headers, verify=False)  # Disable SSL verification for testing
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        date = f"{int(args['day']) + 1}-{args['month']}-{args['year']}"
+        
+        # Extract availability (adjust according to actual response structure)
+        availability_info = soup.find(text=date)
+        if availability_info:
+            avail_status = availability_info.find_next().text.strip()
+            if avail_status == 'AVAILABLE':
+                avail_number = availability_info.find_next().find_next().text.strip()
+                print(f"Train: {args['train_n']} - Available: {avail_number}")
+            else:
+                print(f"Train: {args['train_n']} - Status: {avail_status}")
     except Exception as e:
-        print(f"Error finding availability: {e}")
-        return
-    
-    avail_text = td_text
-    avail_stat = re.search(r'\w+', avail_text).group()
-    
-    if avail_stat == 'AVAILABLE':
-        avail_n = re.search(r'\d+', avail_text).group()
-        print(f"{args['train_n']} {avail_n}")
-    
-    return
+        print(f"Error fetching availability: {e}")
 
 def lookup(trains, args):
     for train_n in trains.keys():
         args['train_n'] = train_n
         find_availability(args)
 
-# Example usage
-trains = find_trains('GWL', 'MTJ')
-args = {
-    'stn_from': 'KYN',
-    'stn_to': 'GWL',
-    'day': '14',
-    'month': '10',
-    'year': '2023',
-    'class': '3A',
-    'quota': 'CK'
-}
-lookup(trains, args)
+if __name__ == "__main__":
+    from_station = 'GWL'  # Replace with your station
+    to_station = 'MTJ'    # Replace with your destination
+    trains = find_trains(from_station, to_station)
+    
+    args = {
+        'stn_from': from_station,
+        'stn_to': to_station,
+        'day': '14',  # Example day
+        'month': '10',  # Example month
+        'year': '2024',  # Example year
+        'class': '3A',  # Class of travel
+        'quota': 'CK'   # Quota type
+    }
+    
+    lookup(trains, args)
