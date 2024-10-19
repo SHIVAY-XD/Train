@@ -1,22 +1,24 @@
-import requests
+import http.client
+import ssl
+import json
 
 def fetch_trains(from_station, to_station, travel_date):
-    url = f"https://www.indianrail.gov.in/cgi_bin/inet_trnssrch.cgi?lccp=Search&from={from_station}&to={to_station}&date={travel_date}"
+    conn = http.client.HTTPSConnection("www.indianrail.gov.in", context=ssl.create_default_context())
     
+    url = f"/cgi_bin/inet_trnssrch.cgi?lccp=Search&from={from_station}&to={to_station}&date={travel_date}"
     try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()  # Raise an error for bad responses
-        raw_data = response.text
-        print("Raw response:", raw_data)
-
-        trains = parse_trains(raw_data)
+        conn.request("GET", url)
+        res = conn.getresponse()
+        data = res.read().decode()
+        
+        print("Raw response:", data)
+        trains = parse_trains(data)
         print("Trains found:", trains)
-        return trains
 
-    except requests.exceptions.SSLError as ssl_err:
-        print(f"SSL Error: {ssl_err}")
-    except requests.exceptions.RequestException as req_err:
-        print(f"Error fetching trains: {req_err}")
+    except Exception as e:
+        print(f"Error fetching trains: {e}")
+    finally:
+        conn.close()
 
 def parse_trains(raw_data):
     trains = {}
