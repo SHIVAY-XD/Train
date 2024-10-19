@@ -5,19 +5,22 @@ def find_trains(stn_from, stn_to):
     print(f"Fetching trains from {stn_from} to {stn_to}...")
     try:
         response = requests.get(f"http://erail.in/rail/getTrains.aspx?Station_From={stn_from}&Station_To={stn_to}&DataSource=0&Language=0")
-        response.raise_for_status()  # Raise an error for bad responses
+        response.raise_for_status()
     except requests.RequestException as e:
         print(f"Error fetching trains: {e}")
         return {}
     
-    train_items = response.text.split(';')  # Split response into train items
+    # Adjust the parsing based on the actual format of the response
+    soup = BeautifulSoup(response.content, 'html.parser')
     trains = {}
-    for train_item in train_items:
-        parts = train_item.split('~')
-        if len(parts) >= 2:
-            train_number = parts[0].strip('^')
-            train_name = parts[1].strip()
+    
+    for train in soup.find_all('tr')[1:]:  # Skip header row
+        columns = train.find_all('td')
+        if len(columns) >= 2:
+            train_number = columns[1].text.strip()
+            train_name = columns[2].text.strip()
             trains[train_number] = train_name
+    
     return trains
 
 def find_availability(args):
@@ -48,7 +51,7 @@ def find_availability(args):
         print(f"Error checking availability: {e}")
         return
 
-    # Example logic to find availability (may need adjustments based on actual HTML structure)
+    # Check for availability based on the actual response format
     available = soup.find(text='Available')
     if available:
         print(f"{args['train_n']} is available!")
@@ -76,4 +79,7 @@ if __name__ == "__main__":
         'quota': 'GN'
     }
     
-    lookup(trains, args)
+    if trains:
+        lookup(trains, args)
+    else:
+        print("No trains found.")
