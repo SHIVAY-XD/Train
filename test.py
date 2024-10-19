@@ -1,67 +1,81 @@
 import requests
+import re
 from bs4 import BeautifulSoup
-from datetime import datetime
-import time
 
-def fetch_train_details(from_location, destination, travel_date_input):
-    # Convert date from DD-MM-YYYY to YYYYMMDD
-    try:
-        travel_date = datetime.strptime(travel_date_input, "%d-%m-%Y").strftime("%Y%m%d")
-    except ValueError:
-        print("Please enter the date in the correct format: DD-MM-YYYY.")
-        return
+def find_trains(stn_from, stn_to):
+    url = f"http://erail.in/rail/getTrains.aspx?Station_From={stn_from}&Station_To={stn_to}&DataSource=0&Language=0"
+    response = requests.get(url)
+    response.raise_for_status()
+    
+    re_train_item = re.compile(r'\^\d+\~[A-Za-z0-9 ]+')
+    re_train_name = re.compile(r'~[A-Za-z0-9 ]+')
+    re_train_number = re.compile(r'\^\d+')
+    
+    trains = {}
+    train_items = re_train_item.findall(response.text)
+    
+    for train_item in train_items:
+        train_number = re_train_number.search(train_item).group()[1:]
+        train_name = re_train_name.search(train_item).group()[1:]
+        trains[train_number] = train_name
+    
+    return trains
 
-    # Construct the URL
-    url = f"https://www.goibibo.com/trains/dsrp/{from_location}/{destination}/{travel_date}/"
-    print(f"Constructed URL: {url}")
-
-    # Set headers
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36'
+def find_availability(args):
+    post_data = {
+        'lccp_day': args['day'],
+        'lccp_month': args['month'],
+        'lccp_year': args['year'],
+        'lccp_class1': args['class'],
+        'lccp_quota': args['quota'],
+        'lccp_trndtl': f"{args['train_n']} {args['stn_from']} {args['stn_to']}",
+        'lccp_classopt': 'ZZ',
+        'lccp_age': 'ADULT_AGE'
     }
+    
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
+    request_url = "http://www.indianrail.gov.in/cgi_bin/inet_accavl_cgi1.cgi"
+    response = requests.post(request_url, data=post_data, headers=headers)
+    response.raise_for_status()
+    
+    soup = BeautifulSoup(response.content, 'html.parser')
+    date = f"{int(args['day']) + 1}-{args['month']}-{args['year']}"
+    
+    tds = soup.find(text=re.compile('S.No.'))
+    try:
+        td_text = tds.parent.parent.parent.find(text=re.compile(date)).next.next.next
+    except Exception as e:
+        print(f"Error finding availability: {e}")
+        return
+    
+    avail_text = td_text
+    avail_stat = re.search(r'\w+', avail_text).group()
+    
+    if avail_stat == 'AVAILABLE':
+        avail_n = re.search(r'\d+', avail_text).group()
+        print(f"{args['train_n']} {avail_n}")
+    
+    return
 
-    # Retry parameters
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            print("Making request...")
-            response = requests.get(url, headers=headers, timeout=30)  # Increased timeout
-            response.raise_for_status()
-            print("Request made successfully.")
-            break
-        except requests.exceptions.Timeout:
-            print(f"Attempt {attempt + 1} timed out. Retrying...")
-            time.sleep(2)
-        except requests.exceptions.RequestException as e:
-            print(f"An error occurred: {e}")
-            return
-
-    # Process the response if successful
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-        # Extract train details
-        trains = []
-        for train in soup.find_all('div', class_='train-listing'):
-            train_name = train.find('h3', class_='train-name').text.strip()
-            train_number = train.find('p', class_='train-number').text.strip()
-            from_time = train.find('div', class_='from-time').text.strip()
-            to_time = train.find('div', class_='to-time').text.strip()
-            duration = train.find('div', class_='duration').text.strip()
-
-            trains.append(f"Train: {train_name} ({train_number})\nDeparture: {from_time}\nArrival: {to_time}\nDuration: {duration}\n")
-
-        # Print train details
-        if trains:
-            print("\n".join(trains))
-        else:
-            print("No trains found for your search.")
-    else:
-        print(f"Failed to fetch train details. Status Code: {response.status_code}")
+def lookup(trains, args):
+    for train_n in trains.keys():
+        args['train_n'] = train_n
+        find_availability(args)
 
 # Example usage
-from_location = "LTT"  # Example: Mumbai LTT
-destination = "BSB"    # Example: Varanasi
-travel_date_input = "01-11-2024"  # Example date
-
-fetch_train_details(from_location, destination, travel_date_input)
+trains = find_trains('GWL', 'MTJ')
+args = {
+    'stn_from': 'KYN',
+    'stn_to': 'GWL',
+    'day': '14',
+    'month': '10',
+    'year': '2023',
+    'class': '3A',
+    'quota': 'CK'
+}
+lookup(trains, args)
