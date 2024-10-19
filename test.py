@@ -1,4 +1,5 @@
 import requests
+import re
 from bs4 import BeautifulSoup
 
 def find_trains(stn_from, stn_to):
@@ -12,17 +13,15 @@ def find_trains(stn_from, stn_to):
     
     # Print the raw response for debugging
     print("Raw response:", response.text[:1000])  # Print first 1000 chars for brevity
-    
-    soup = BeautifulSoup(response.content, 'html.parser')
+
+    # Regular expression to find train information
+    train_pattern = re.compile(r'\^(\d+)~([A-Za-z0-9 ]+)~')
     trains = {}
     
-    # Adjust the following selector based on the actual HTML structure
-    for train in soup.select('tr'):
-        columns = train.find_all('td')
-        if len(columns) >= 2:
-            train_number = columns[1].text.strip()
-            train_name = columns[2].text.strip()
-            trains[train_number] = train_name
+    # Find all matches in the raw response
+    matches = train_pattern.findall(response.text)
+    for train_number, train_name in matches:
+        trains[train_number] = train_name
     
     return trains
 
