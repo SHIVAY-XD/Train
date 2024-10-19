@@ -21,35 +21,34 @@ def fetch_train_details(from_location, destination, travel_date_input):
 
     # Fetch train details
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=10)  # Set a timeout
+        response.raise_for_status()  # Raise an error for bad responses
         print(f"Response Status Code: {response.status_code}")
 
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.content, 'lxml')
-            print(f"Response Content Length: {len(response.content)}")  # Log content length for debugging
-            
-            # Print a portion of the response to help debug
-            print(response.text[:500])  # Print the first 500 characters of the response content
+        soup = BeautifulSoup(response.content, 'lxml')
+        print(f"Response Content Length: {len(response.content)}")  # Log content length for debugging
+        
+        trains = []
+        for train in soup.find_all('div', class_='train-listing'):
+            train_name = train.find('h3', class_='train-name').text.strip()
+            train_number = train.find('p', class_='train-number').text.strip()
+            from_time = train.find('div', class_='from-time').text.strip()
+            to_time = train.find('div', class_='to-time').text.strip()
+            duration = train.find('div', class_='duration').text.strip()
 
-            trains = []
-            for train in soup.find_all('div', class_='train-listing'):
-                train_name = train.find('h3', class_='train-name').text.strip()
-                train_number = train.find('p', class_='train-number').text.strip()
-                from_time = train.find('div', class_='from-time').text.strip()
-                to_time = train.find('div', class_='to-time').text.strip()
-                duration = train.find('div', class_='duration').text.strip()
+            trains.append(f"Train: {train_name} ({train_number})\nDeparture: {from_time}\nArrival: {to_time}\nDuration: {duration}\n")
 
-                trains.append(f"Train: {train_name} ({train_number})\nDeparture: {from_time}\nArrival: {to_time}\nDuration: {duration}\n")
-
-            if trains:
-                print("\n".join(trains))
-            else:
-                print("No trains found for your search.")
+        if trains:
+            print("\n".join(trains))
         else:
-            print("Failed to fetch train details. Please try again later.")
+            print("No trains found for your search.")
 
-    except Exception as e:
-        print(f"An error occurred while fetching train details: {e}")
+    except requests.exceptions.Timeout:
+        print("The request timed out.")
+    except requests.exceptions.TooManyRedirects:
+        print("Too many redirects. Check the URL.")
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
 
 # Example usage
 from_location = "LTT"  # Example: Mumbai LTT
