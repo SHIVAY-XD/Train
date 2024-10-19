@@ -57,15 +57,18 @@ async def fetch_train_details(update, context, user_id):
 
     # Construct the URL
     url = f"https://www.goibibo.com/trains/dsrp/{from_location}/{destination}/{travel_date}/"
+    logging.info(f"Constructed URL: {url}")
     
-    # Fetch train details (placeholder)
+    # Fetch train details
     response = requests.get(url)
+    logging.info(f"Response Status Code: {response.status_code}")
 
-    # For demonstration, we'll just return the URL
+    # Check response status
     if response.status_code == 200:
         await update.message.reply_text(f"Train details URL: {url}\n\n(Parsing and displaying train details can be added here.)")
     else:
         await update.message.reply_text("Failed to fetch train details. Please try again later.")
+        logging.info(f"Response Content: {response.text}")  # Log response content for debugging
 
     # Clear user data for the next search
     del user_data[user_id]
