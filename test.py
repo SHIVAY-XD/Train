@@ -25,7 +25,7 @@ def fetch_train_details(from_location, destination, travel_date_input):
     for attempt in range(max_retries):
         try:
             print("Making request...")
-            response = requests.get(url, headers=headers, timeout=20)
+            response = requests.get(url, headers=headers, timeout=30)  # Increased timeout
             response.raise_for_status()
             print("Request made successfully.")
             break
