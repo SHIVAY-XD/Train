@@ -44,7 +44,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await fetch_train_details(update, context, user_id)
 
 # Function to fetch and scrape train details
-async def fetch_train_details(update, context, user_id):
+async def fetch_train_details(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int) -> None:
     from_location = user_data[user_id]['from'].strip().upper()
     destination = user_data[user_id]['destination'].strip().upper()
     travel_date_input = user_data[user_id]['date'].strip()
@@ -70,11 +70,10 @@ async def fetch_train_details(update, context, user_id):
         response = requests.get(url, headers=headers)
         logging.info(f"Response Status Code: {response.status_code}")
 
-        # Check response status
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'lxml')
+            logging.info(f"Response Content: {response.text}")  # Log full response for debugging
 
-            # Extract train details (adjust selectors as necessary)
             trains = []
             for train in soup.find_all('div', class_='train-listing'):
                 train_name = train.find('h3', class_='train-name').text.strip()
@@ -91,7 +90,7 @@ async def fetch_train_details(update, context, user_id):
                 await update.message.reply_text("No trains found for your search.")
         else:
             await update.message.reply_text("Failed to fetch train details. Please try again later.")
-            logging.info(f"Response Content: {response.text}")  # Log response content for debugging
+            logging.error(f"Failed with status code: {response.status_code}")
 
     except Exception as e:
         await update.message.reply_text("An error occurred while fetching train details. Please try again.")
