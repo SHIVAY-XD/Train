@@ -10,11 +10,14 @@ def find_trains(stn_from, stn_to):
         print(f"Error fetching trains: {e}")
         return {}
     
-    # Adjust the parsing based on the actual format of the response
+    # Print the raw response for debugging
+    print("Raw response:", response.text[:1000])  # Print first 1000 chars for brevity
+    
     soup = BeautifulSoup(response.content, 'html.parser')
     trains = {}
     
-    for train in soup.find_all('tr')[1:]:  # Skip header row
+    # Adjust the following selector based on the actual HTML structure
+    for train in soup.select('tr'):
         columns = train.find_all('td')
         if len(columns) >= 2:
             train_number = columns[1].text.strip()
