@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+import time
 
 def fetch_train_details(from_location, destination, travel_date_input):
     # Convert date from DD-MM-YYYY to YYYYMMDD
@@ -16,18 +17,30 @@ def fetch_train_details(from_location, destination, travel_date_input):
 
     # Set headers
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36'
     }
 
-    # Fetch train details
-    try:
-        response = requests.get(url, headers=headers, timeout=10)  # Set a timeout
-        response.raise_for_status()  # Raise an error for bad responses
-        print(f"Response Status Code: {response.status_code}")
+    # Retry parameters
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            print("Making request...")
+            response = requests.get(url, headers=headers, timeout=20)
+            response.raise_for_status()
+            print("Request made successfully.")
+            break
+        except requests.exceptions.Timeout:
+            print(f"Attempt {attempt + 1} timed out. Retrying...")
+            time.sleep(2)
+        except requests.exceptions.RequestException as e:
+            print(f"An error occurred: {e}")
+            return
 
-        soup = BeautifulSoup(response.content, 'lxml')
-        print(f"Response Content Length: {len(response.content)}")  # Log content length for debugging
-        
+    # Process the response if successful
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        # Extract train details
         trains = []
         for train in soup.find_all('div', class_='train-listing'):
             train_name = train.find('h3', class_='train-name').text.strip()
@@ -38,17 +51,13 @@ def fetch_train_details(from_location, destination, travel_date_input):
 
             trains.append(f"Train: {train_name} ({train_number})\nDeparture: {from_time}\nArrival: {to_time}\nDuration: {duration}\n")
 
+        # Print train details
         if trains:
             print("\n".join(trains))
         else:
             print("No trains found for your search.")
-
-    except requests.exceptions.Timeout:
-        print("The request timed out.")
-    except requests.exceptions.TooManyRedirects:
-        print("Too many redirects. Check the URL.")
-    except requests.exceptions.RequestException as e:
-        print(f"An error occurred: {e}")
+    else:
+        print(f"Failed to fetch train details. Status Code: {response.status_code}")
 
 # Example usage
 from_location = "LTT"  # Example: Mumbai LTT
