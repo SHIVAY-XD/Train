@@ -1,33 +1,66 @@
-import ssl
 import requests
+from datetime import datetime
 
-def find_availability(args):
-    print(f"Checking availability for {args['train_n']}...")
-    
-    post_data = {
-        'lccp_day': args['day'],
-        'lccp_month': args['month'],
-        'lccp_year': args['year'],
-        'lccp_class1': args['class'],
-        'lccp_quota': args['quota'],
-        'lccp_trndtl': f"{args['train_n']} {args['stn_from']} {args['stn_to']}",
-        'lccp_age': 'ADULT_AGE',
-        'lccp_conc': 'ZZZZZZ'
+# Constants
+BASE_URL = "https://www.indianrail.gov.in"
+TRAIN_SEARCH_URL = f"{BASE_URL}/cgi_bin/inet_trnssrch.cgi"
+AVAILABILITY_URL = f"{BASE_URL}/cgi_bin/inet_accavl_cgi1.cgi"
+
+def fetch_trains(source, destination, date):
+    print(f"Fetching trains from {source} to {destination} on {date}...")
+    params = {
+        "lccp": "Search",
+        "from": source,
+        "to": destination,
+        "date": date,
     }
-
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-    }
-
-    # Create a new SSL context
-    ssl_context = ssl.create_default_context()
-    ssl_context.options |= ssl.OP_NO_SSLv3  # Disable SSLv3
-
-    request_url = "https://www.indianrail.gov.in/cgi_bin/inet_accavl_cgi1.cgi"
-
     try:
-        response = requests.post(request_url, data=post_data, headers=headers, verify=ssl_context)
+        response = requests.get(TRAIN_SEARCH_URL, params=params)
+        response.raise_for_status()  # Raise an error for bad responses
+        print(f"Response status code: {response.status_code}")
+        print(f"Raw response: {response.content.decode()}")
+        
+        trains = parse_trains(response.text)
+        print(f"Trains found: {trains}")
+        return trains
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching trains: {e}")
+        return {}
+
+def parse_trains(response_text):
+    # Sample parsing logic (replace with your actual logic)
+    trains = {}
+    raw_trains = response_text.split('~')[1:]  # Adjust based on actual response format
+    for train in raw_trains:
+        details = train.split('~')
+        if len(details) > 2:
+            train_number = details[0]
+            train_name = details[1]
+            trains[train_number] = train_name
+    return trains
+
+def check_availability(train_number):
+    print(f"Checking availability for {train_number}...")
+    params = {
+        "trainno": train_number,
+        # Add other necessary params here
+    }
+    try:
+        response = requests.get(AVAILABILITY_URL, params=params)
         response.raise_for_status()
-        print(f"Response received for {args['train_n']}: {response.text[:100]}...")  # Print first 100 chars for brevity
-    except requests.RequestException as e:
+        print(f"Response status code: {response.status_code}")
+        # Parse availability logic here
+    except requests.exceptions.RequestException as e:
         print(f"Error checking availability: {e}")
+
+def main():
+    source = "LTT"  # Lokmanyatilak Terminus
+    destination = "BSB"  # Varanasi Junction
+    date = datetime.now().strftime("%Y-%m-%d")  # Today's date in YYYY-MM-DD format
+
+    trains = fetch_trains(source, destination, date)
+    for train_number in trains.keys():
+        check_availability(train_number)
+
+if __name__ == "__main__":
+    main()
