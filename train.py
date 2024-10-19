@@ -59,38 +59,43 @@ async def fetch_train_details(update, context, user_id):
     # Construct the URL
     url = f"https://www.goibibo.com/trains/dsrp/{from_location}/{destination}/{travel_date}/"
     logging.info(f"Constructed URL: {url}")
-    
+
     # Set headers
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
-    
+
     # Fetch train details
-    response = requests.get(url, headers=headers)
-    logging.info(f"Response Status Code: {response.status_code}")
+    try:
+        response = requests.get(url, headers=headers)
+        logging.info(f"Response Status Code: {response.status_code}")
 
-    # Check response status
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.content, 'lxml')
+        # Check response status
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'lxml')
 
-        # Extract train details (adjust selectors as necessary based on actual HTML structure)
-        trains = []
-        for train in soup.find_all('div', class_='train-listing'):
-            train_name = train.find('h3', class_='train-name').text.strip()
-            train_number = train.find('p', class_='train-number').text.strip()
-            from_time = train.find('div', class_='from-time').text.strip()
-            to_time = train.find('div', class_='to-time').text.strip()
-            duration = train.find('div', class_='duration').text.strip()
+            # Extract train details (adjust selectors as necessary)
+            trains = []
+            for train in soup.find_all('div', class_='train-listing'):
+                train_name = train.find('h3', class_='train-name').text.strip()
+                train_number = train.find('p', class_='train-number').text.strip()
+                from_time = train.find('div', class_='from-time').text.strip()
+                to_time = train.find('div', class_='to-time').text.strip()
+                duration = train.find('div', class_='duration').text.strip()
 
-            trains.append(f"Train: {train_name} ({train_number})\nDeparture: {from_time}\nArrival: {to_time}\nDuration: {duration}\n")
+                trains.append(f"Train: {train_name} ({train_number})\nDeparture: {from_time}\nArrival: {to_time}\nDuration: {duration}\n")
 
-        if trains:
-            await update.message.reply_text("\n".join(trains))
+            if trains:
+                await update.message.reply_text("\n".join(trains))
+            else:
+                await update.message.reply_text("No trains found for your search.")
         else:
-            await update.message.reply_text("No trains found for your search.")
-    else:
-        await update.message.reply_text("Failed to fetch train details. Please try again later.")
-        logging.info(f"Response Content: {response.text}")  # Log response content for debugging
+            await update.message.reply_text("Failed to fetch train details. Please try again later.")
+            logging.info(f"Response Content: {response.text}")  # Log response content for debugging
+
+    except Exception as e:
+        await update.message.reply_text("An error occurred while fetching train details. Please try again.")
+        logging.error(f"Error fetching train details: {e}")
 
     # Clear user data for the next search
     del user_data[user_id]
