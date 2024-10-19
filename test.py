@@ -1,66 +1,40 @@
 import requests
-from datetime import datetime
 
-# Constants
-BASE_URL = "https://www.indianrail.gov.in"
-TRAIN_SEARCH_URL = f"{BASE_URL}/cgi_bin/inet_trnssrch.cgi"
-AVAILABILITY_URL = f"{BASE_URL}/cgi_bin/inet_accavl_cgi1.cgi"
-
-def fetch_trains(source, destination, date):
-    print(f"Fetching trains from {source} to {destination} on {date}...")
-    params = {
-        "lccp": "Search",
-        "from": source,
-        "to": destination,
-        "date": date,
-    }
+def fetch_trains(from_station, to_station, travel_date):
+    url = f"https://www.indianrail.gov.in/cgi_bin/inet_trnssrch.cgi?lccp=Search&from={from_station}&to={to_station}&date={travel_date}"
+    
     try:
-        response = requests.get(TRAIN_SEARCH_URL, params=params)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()  # Raise an error for bad responses
-        print(f"Response status code: {response.status_code}")
-        print(f"Raw response: {response.content.decode()}")
-        
-        trains = parse_trains(response.text)
-        print(f"Trains found: {trains}")
-        return trains
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching trains: {e}")
-        return {}
+        raw_data = response.text
+        print("Raw response:", raw_data)
 
-def parse_trains(response_text):
-    # Sample parsing logic (replace with your actual logic)
+        trains = parse_trains(raw_data)
+        print("Trains found:", trains)
+        return trains
+
+    except requests.exceptions.SSLError as ssl_err:
+        print(f"SSL Error: {ssl_err}")
+    except requests.exceptions.RequestException as req_err:
+        print(f"Error fetching trains: {req_err}")
+
+def parse_trains(raw_data):
     trains = {}
-    raw_trains = response_text.split('~')[1:]  # Adjust based on actual response format
-    for train in raw_trains:
-        details = train.split('~')
-        if len(details) > 2:
-            train_number = details[0]
-            train_name = details[1]
+    lines = raw_data.split('^')
+    
+    for line in lines:
+        details = line.split('~')
+        if len(details) > 1:
+            train_number = details[1]
+            train_name = details[2]
             trains[train_number] = train_name
+            
     return trains
 
-def check_availability(train_number):
-    print(f"Checking availability for {train_number}...")
-    params = {
-        "trainno": train_number,
-        # Add other necessary params here
-    }
-    try:
-        response = requests.get(AVAILABILITY_URL, params=params)
-        response.raise_for_status()
-        print(f"Response status code: {response.status_code}")
-        # Parse availability logic here
-    except requests.exceptions.RequestException as e:
-        print(f"Error checking availability: {e}")
-
-def main():
-    source = "LTT"  # Lokmanyatilak Terminus
-    destination = "BSB"  # Varanasi Junction
-    date = datetime.now().strftime("%Y-%m-%d")  # Today's date in YYYY-MM-DD format
-
-    trains = fetch_trains(source, destination, date)
-    for train_number in trains.keys():
-        check_availability(train_number)
-
 if __name__ == "__main__":
-    main()
+    from_station = "LTT"  # Lokmanyatilak
+    to_station = "BSB"    # Varanasi Junction
+    travel_date = "2024-10-19"
+
+    print(f"Fetching trains from {from_station} to {to_station} on {travel_date}...")
+    fetch_trains(from_station, to_station, travel_date)
