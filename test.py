@@ -26,8 +26,12 @@ def fetch_train_details(from_location, destination, travel_date_input):
 
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'lxml')
-            trains = []
+            print(f"Response Content Length: {len(response.content)}")  # Log content length for debugging
+            
+            # Print a portion of the response to help debug
+            print(response.text[:500])  # Print the first 500 characters of the response content
 
+            trains = []
             for train in soup.find_all('div', class_='train-listing'):
                 train_name = train.find('h3', class_='train-name').text.strip()
                 train_number = train.find('p', class_='train-number').text.strip()
